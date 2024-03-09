@@ -27,6 +27,20 @@ class Number:
             self.stop_ind = stop_ind
         def __repr__(self):
             return f"({self.number}, {self.start_ind}, {self.stop_ind})"
+def format_equation(equation):
+    inputs_LHS = []
+    inputs_RHS = []
+    LHS_terms = []
+    RHS_terms = []
+    equation = equation.replace(" ", "")
+    LHS, RHS = equation.split("->")
+    for i in LHS.split("+"):
+        inputs_LHS.append(i)
+        LHS_terms.append(extract_element_data(i))
+    for i in RHS.split("+"):
+        inputs_RHS.append(i)
+        RHS_terms.append(extract_element_data(i))
+    return (inputs_LHS, inputs_RHS, LHS_terms, RHS_terms)
 def format_str(str_term):
     if (not str_term[0].isnumeric()):
         str_term = "0" + str_term
@@ -138,7 +152,7 @@ def set_value(list_connection):
         if (i != 0):
             dict_term_coefficient[term] = 0
         else:
-            dict_term_coefficient[term] = 1 #seed
+            dict_term_coefficient[term] = 1.0 #seed
     for i in RHS_terms:
         dict_term_coefficient[i] = 0
     for j in range(0, 100):
@@ -157,6 +171,100 @@ def set_value(list_connection):
         #randomize dict_term_coefficient item order
         r.shuffle(list_connection)
     return dict_term_coefficient
+def find_repeated_element(list_terms):
+    dict_repeated = {} #element, term of element
+    for term in list_terms:
+        for element in term.list_Element:
+            str_element = element.str_element
+            if (str_element in dict_repeated):
+                term_count = dict_repeated[str_element]
+                term_count[0].append(term)
+                term_count[1] += 1
+                dict_repeated[str_element] = term_count
+            else: 
+                dict_repeated[str_element] = [[term], 1]
+    list_remove = []
+    for str_element in dict_repeated:
+        term_count = dict_repeated[str_element]
+        if (term_count[1] == 1):
+            list_remove.append(str_element)
+    for i in list_remove:
+        del dict_repeated[i]
+    for str_element in dict_repeated:
+        term_count = dict_repeated[str_element]
+        dict_repeated[str_element] = term_count[0]
+    return dict_repeated
+def create_linear_equations(dict_repeated):
+    dict_equations = {}
+    for str_element in dict_repeated:
+        list_term = dict_repeated[str_element]
+        dict_equations[str_element] = []
+        for term in list_term:
+            assert type(term) == Term
+            list_Element = term.list_Element
+            subscript = None
+            for element in list_Element:
+                if (element.str_element == str_element):
+                    subscript = element.amount
+                    break
+            else:
+                raise Exception("ERROR: str_element CANNOT BE FOUND (u fked up)")
+            if (term.num_molecules != 0): #solved previously with the unique element algorithm
+                dict_equations[str_element].append(str(term.num_molecules * subscript))
+            else: #unsolved coefficient, ggs
+                dict_equations[str_element].append((f"{subscript}x", term))
+    return dict_equations
+def solve_linear_equation(equation): 
+    #NOT MY CODE - solve_linear_equation() TAKEN FROM GEEKSFORGEEKS
+    s1 = equation.replace('x', 'j') 
+    s2 = s1.replace('=', '-(') 
+    s = s2 + ')'
+    z = eval(s, {'j': 1j}) 
+    real, imag = z.real, -z.imag 
+    if imag: 
+        return real / imag
+def format_linear_equations(dict_A, dict_B):
+    #solve element by element
+    list_solutions = []
+    for str_element in dict_A:
+        list_LHS = dict_A[str_element]
+        list_RHS = dict_B[str_element]
+        str_equation = ""
+        x_count = 0
+        term_value = None
+        for i in range(0, len(list_LHS)):
+            tuple_str = list_LHS[i]
+            equation_term = ""
+            if (type(tuple_str) == tuple):
+                term_value = tuple_str[1]
+                x_count += 1
+                equation_term = tuple_str[0]
+            else:
+                equation_term = tuple_str
+            if (i == len(list_LHS) - 1):
+                str_equation += equation_term
+            else:
+                str_equation += f"{equation_term}+"
+        str_equation += "="
+        for i in range(0, len(list_RHS)):
+            tuple_str = list_RHS[i]
+            equation_term = ""
+            if (type(tuple_str) == tuple):
+                term_value = tuple_str[1]
+                x_count += 1
+                equation_term = tuple_str[0]
+            else:
+                equation_term = tuple_str
+            if (i == len(list_RHS) - 1):
+                str_equation += equation_term
+            else:
+                str_equation += f"{equation_term}+"
+        print(str_equation)
+        if (x_count > 1):
+            continue
+        coefficient_value = solve_linear_equation(str_equation)
+        list_solutions.append((coefficient_value, term_value))
+    return list_solutions
 def convert_int(number, return_boolean = False):
     str_number = str(number)
     flag = False
@@ -187,6 +295,7 @@ def format_coefficients(list_coefficients):
         list_coefficients.pop(i)
         list_coefficients.insert(i, convert_int(value))
     return list_coefficients
+"""
 LHS_terms = []
 RHS_terms = []
 inputs_LHS = []
@@ -199,8 +308,26 @@ for i in range(0, int(input("Enter number of terms in RHS: "))):
     str_term = input(f"Enter term at position {i + 1}: ")
     inputs_RHS.append(str_term)
     RHS_terms.append(extract_element_data(str_term))
+"""
+equation = input("Enter equation: ")
+inputs_LHS, inputs_RHS, LHS_terms, RHS_terms = format_equation(equation)
 coefficients = set_value(find_correlation())
-list_coefficients = format_coefficients(list(coefficients.values()))
+list_coefficients = list(coefficients.values())
+print(f"list_coefficients: {list_coefficients}")
+while (0 in list_coefficients):
+    for i in range(0, len(list_coefficients)):
+        if (i >= len(LHS_terms)):
+            RHS_terms[i - len(LHS_terms)].num_molecules = list_coefficients[i]
+        else:
+            LHS_terms[i].num_molecules = list_coefficients[i]
+    LHS_equations = create_linear_equations(find_repeated_element(LHS_terms))
+    RHS_equations = create_linear_equations(find_repeated_element(RHS_terms))
+    list_solutions = format_linear_equations(LHS_equations, RHS_equations)
+    for i in list_solutions:
+        coefficient_value, term_value = i
+        term_value.num_molecules = coefficient_value
+        list_coefficients[list(coefficients.keys()).index(term_value)] = coefficient_value    
+list_coefficients = format_coefficients(list_coefficients)
 str_return = ""
 for i in range(0, len(inputs_LHS)):
     term = inputs_LHS[i]
