@@ -33,7 +33,7 @@ def format_equation(equation):
     LHS_terms = []
     RHS_terms = []
     equation = equation.replace(" ", "")
-    LHS, RHS = equation.split("→")
+    LHS, RHS = equation.split("->")
     for i in LHS.split("+"):
         inputs_LHS.append(i)
         LHS_terms.append(extract_element_data(i))
@@ -48,18 +48,44 @@ def format_str(str_term):
         for i in range(0, len(str_term)):
             char = str_term[i]
             if (i == len(str_term) - 1):
-                if (char.isalpha()):
+                if (not char.isnumeric()):
                     str_term += "1"
                 break
             next_char = str_term[i + 1]
             if (char.isalpha()):
-                if (next_char.isalpha() and next_char.isupper()): #insert 1 
+                if (not (next_char.islower() or next_char.isnumeric())): #insert 1 
                     str_front = str_term[:i + 1]
                     str_end = str_term[i + 1:]
                     str_term = str_front + "1" + str_end
                     break
         else:
             break
+    if ("(" in str_term):
+        str_bracket = ""
+        close_flag = False
+        for i in range(str_term.index("("), len(str_term)):
+            char = str_term[i]
+            if (char == ")"):
+                close_flag = True
+            if (char.isalpha() and close_flag):
+                break
+            str_bracket += char
+        bracket_str = str_bracket
+        inside_bracket = bracket_str[bracket_str.index("(") + 1:bracket_str.index(")")]
+        try:
+            outside_bracket = int(bracket_str[bracket_str.index(")") + 1:])
+        except (ValueError):
+            outside_bracket = 1
+        list_Number = extract_number(inside_bracket)
+        index_difference = 0
+        for number_obj in list_Number:
+            assert type(number_obj) == Number
+            number = int(number_obj.number) * outside_bracket
+            str_front = inside_bracket[:number_obj.stop_ind + index_difference]
+            str_end = inside_bracket[number_obj.start_ind + index_difference + 1:]
+            inside_bracket = f"{str_front}{number}{str_end}" 
+            index_difference += len(str(number)) - len(number_obj.number)
+        str_term = str_term.replace(str_bracket, inside_bracket)
     return str_term
 def extract_number(str_term):
     list_Number = []
@@ -177,7 +203,7 @@ def set_value(list_connection):
             return_dict = dict_term_coefficient
     assert type(return_dict) == dict
     return return_dict #value with the most solved terms (when there are unlinked connections)
-def find_repeated_element(list_terms):
+def find_element_data(list_terms):
     dict_repeated = {} #element, term of element
     for term in list_terms:
         for element in term.list_Element:
@@ -189,17 +215,10 @@ def find_repeated_element(list_terms):
                 dict_repeated[str_element] = term_count
             else: 
                 dict_repeated[str_element] = [[term], 1]
-    list_remove = []
-    for str_element in dict_repeated:
-        term_count = dict_repeated[str_element]
-        if (term_count[1] == 1):
-            list_remove.append(str_element)
-    for i in list_remove:
-        del dict_repeated[i]
     for str_element in dict_repeated:
         term_count = dict_repeated[str_element]
         dict_repeated[str_element] = term_count[0]
-    return dict_repeated
+    return dict_repeated        
 def create_linear_equations(dict_repeated): 
     dict_equations = {}
     for str_element in dict_repeated:
@@ -222,13 +241,9 @@ def create_linear_equations(dict_repeated):
     return dict_equations
 def solve_linear_equation(equation): 
     #NOT MY CODE - solve_linear_equation() TAKEN FROM GEEKSFORGEEKS
-    s1 = equation.replace('x', 'j') 
-    s2 = s1.replace('=', '-(') 
-    s = s2 + ')'
-    z = eval(s, {'j': 1j}) 
+    z = eval(equation.replace("x", "j").replace("=", "-(") + ")", {"j": 1j}) 
     real, imag = z.real, -z.imag 
-    if imag: 
-        return real / imag
+    return real / imag
 def format_linear_equations(dict_A, dict_B):
     #solve element by element
     list_solutions = []
@@ -312,11 +327,10 @@ def solutions_link(list_connections):
     for term in combined_terms:
         if (not term.num_molecules == 0):
             continue
-        LHS_RHS = (combined_terms.index(term) < len(LHS_terms)) #if LHS, True else RHS, False
         for connection in list_connections:
             assert type(connection) == Connection
             if (same_term(term, connection.Term_1) or same_term(term, connection.Term_2)):
-                if (LHS_RHS):
+                if (combined_terms.index(term) < len(LHS_terms)):
                     Term_2 = connection.Term_2
                     RHS_term = None
                     for RHS_term_loop in RHS_terms: #updated RHS_terms are no longer equal to connection.Term_2
@@ -333,7 +347,7 @@ def solutions_link(list_connections):
                 else:
                     Term_1 = connection.Term_1
                     LHS_term = None
-                    for LHS_term_loop in LHS_terms: #updated RHS_terms are no longer equal to connection.Term_2
+                    for LHS_term_loop in LHS_terms: #updated LHS_terms are no longer equal to connection.Term_2
                         if (same_term(Term_1, LHS_term_loop)):
                             LHS_term = LHS_term_loop
                             break
@@ -365,9 +379,11 @@ inputs_LHS, inputs_RHS, LHS_terms, RHS_terms = format_equation(equation)
 list_connections = find_connection()
 coefficients = set_value(list_connections)
 list_coefficients = list(coefficients.values())
-print(f"list_coefficients (STEP ONE APPLIED): {list_coefficients}")
+print(f"\nlist_coefficients (STEP ONE APPLIED): {list_coefficients}")
 for j in range(0, 10):
     if (not 0 in list_coefficients):
+        if (j > 0):
+            print(f"list_coefficients (STEP TWO APPLIED): {list_coefficients}")
         break
     #update num_molecules after each iteration
     for i in range(0, len(list_coefficients)):
@@ -375,14 +391,15 @@ for j in range(0, 10):
             RHS_terms[i - len(LHS_terms)].num_molecules = list_coefficients[i]
         else:
             LHS_terms[i].num_molecules = list_coefficients[i]
-    LHS_equations = create_linear_equations(find_repeated_element(LHS_terms))
-    RHS_equations = create_linear_equations(find_repeated_element(RHS_terms))
+    LHS_equations = create_linear_equations(find_element_data(LHS_terms))
+    RHS_equations = create_linear_equations(find_element_data(RHS_terms))
     list_solutions = format_linear_equations(LHS_equations, RHS_equations)
     for i in list_solutions:
         coefficient_value, term_value = i
         term_value.num_molecules = coefficient_value
         list_coefficients[list(coefficients.keys()).index(term_value)] = coefficient_value   
-else: #still not solved
+else:
+    #WARNING: THIS CODE IS NOT GOING TO BE USED (solutions_link() WILL NEVER BE CALLED)
     print(f"list_coefficients (STEP TWO APPLIED): {list_coefficients}")
     #step three, applying step one on the data from step two
     term_coefficient = solutions_link(list_connections)
@@ -398,7 +415,7 @@ else: #still not solved
             list_coefficients[len(LHS_terms) + index] = coefficient
     print(f"list_coefficients (STEP THREE APPLIED): {list_coefficients}")
     if (0 in list_coefficients):
-        print("Program is unable to balance the chemical equation.")
+        print("\nProgram is unable to balance the chemical equation.")
         quit()
 list_coefficients = format_coefficients(list_coefficients)
 str_return = ""
@@ -417,4 +434,4 @@ for i in range(0, len(inputs_RHS)):
         str_return += f"{coefficient}_{term} "
     else:
         str_return += f"{coefficient}_{term} + "
-print(f"Balanced chemical equation: {str_return}")
+print(f"\nSOLUTION (balanced chemical equation): {str_return}")
