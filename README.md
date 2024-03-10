@@ -30,6 +30,5 @@ Example chemical equation inputs (that it can solve):
   Na3PO4 + HCl -> NaCl + H3PO4                                                                                                                                                            
   TiCl4 + 2 H2O -> TiO2 + HCl                                                                                                                                                            
   C2H6O + O2 -> CO2 + H2O                                                                                                                                                            
-  Fe + HC2H3O2 -> Fe(C2H3O2)3 + H2                                                                                                                                                            
   NH3 + O2 -> NO + H2O                                                                                                                                                            
   B2Br6 + HNO3 -> B(NO3)3 + HBr
