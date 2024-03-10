@@ -33,7 +33,7 @@ def format_equation(equation):
     LHS_terms = []
     RHS_terms = []
     equation = equation.replace(" ", "")
-    LHS, RHS = equation.split("->")
+    LHS, RHS = equation.split("→")
     for i in LHS.split("+"):
         inputs_LHS.append(i)
         LHS_terms.append(extract_element_data(i))
@@ -123,7 +123,7 @@ def find_different_elements(list_term):
                 list_different_elements.append(element)
                 dictionary_different_elements[element] = i
     return (list_different_elements, dictionary_different_elements)
-def find_correlation():
+def find_connection():
     #find the unique elements on each side, then make a connection between the terms
     LHS_different_elements, LHS_different_elements_terms = find_different_elements(LHS_terms)
     RHS_different_elements, RHS_different_elements_terms = find_different_elements(RHS_terms)
@@ -145,17 +145,19 @@ def find_correlation():
                 ratio_2 = element.amount
         list_connection.append(Connection(Term_1, Term_2, (ratio_1, ratio_2)))
     return list_connection
-def set_value(list_connection):
-    dict_term_coefficient = {}
-    for i in range(0, len(LHS_terms)):
-        term = LHS_terms[i]
-        if (i != 0):
-            dict_term_coefficient[term] = 0
-        else:
-            dict_term_coefficient[term] = 1.0 #seed
-    for i in RHS_terms:
-        dict_term_coefficient[i] = 0
-    for j in range(0, 100):
+def set_value(list_connection):  
+    zero_num = 1000
+    return_dict = None
+    for j in range(0, len(LHS_terms)):
+        dict_term_coefficient = {}
+        for i in range(0, len(LHS_terms)):
+            term = LHS_terms[i]
+            if (i == j):
+                dict_term_coefficient[term] = 1.0 #seed
+            else:
+                dict_term_coefficient[term] = 0 #set to zero at the start, changed after second step
+        for i in RHS_terms:
+            dict_term_coefficient[i] = 0
         for i in list_connection: #Connection class
             term_1 = i.Term_1
             term_2 = i.Term_2
@@ -168,9 +170,13 @@ def set_value(list_connection):
                 term_1_coefficient = term_2_coefficient / ratio[0] * ratio[1]
             dict_term_coefficient[term_1] = term_1_coefficient
             dict_term_coefficient[term_2] = term_2_coefficient
-        #randomize dict_term_coefficient item order
-        r.shuffle(list_connection)
-    return dict_term_coefficient
+        list_coefficient = list(dict_term_coefficient.values())
+        zero_count = list_coefficient.count(0)
+        if (zero_count < zero_num):
+            zero_num = zero_count
+            return_dict = dict_term_coefficient
+    assert type(return_dict) == dict
+    return return_dict #value with the most solved terms (when there are unlinked connections)
 def find_repeated_element(list_terms):
     dict_repeated = {} #element, term of element
     for term in list_terms:
@@ -194,7 +200,7 @@ def find_repeated_element(list_terms):
         term_count = dict_repeated[str_element]
         dict_repeated[str_element] = term_count[0]
     return dict_repeated
-def create_linear_equations(dict_repeated):
+def create_linear_equations(dict_repeated): 
     dict_equations = {}
     for str_element in dict_repeated:
         list_term = dict_repeated[str_element]
@@ -259,8 +265,7 @@ def format_linear_equations(dict_A, dict_B):
                 str_equation += equation_term
             else:
                 str_equation += f"{equation_term}+"
-        print(str_equation)
-        if (x_count > 1):
+        if (not x_count == 1):
             continue
         coefficient_value = solve_linear_equation(str_equation)
         list_solutions.append((coefficient_value, term_value))
@@ -295,6 +300,52 @@ def format_coefficients(list_coefficients):
         list_coefficients.pop(i)
         list_coefficients.insert(i, convert_int(value))
     return list_coefficients
+def same_term(term_1, term_2):
+    if (term_1.list_Element == term_2.list_Element):
+        return True
+    return False
+def solutions_link(list_connections):
+    import copy as c
+    combined_terms = c.deepcopy(LHS_terms)
+    combined_terms.extend(RHS_terms)
+    term_coefficient = {}
+    for term in combined_terms:
+        if (not term.num_molecules == 0):
+            continue
+        LHS_RHS = (combined_terms.index(term) < len(LHS_terms)) #if LHS, True else RHS, False
+        for connection in list_connections:
+            assert type(connection) == Connection
+            if (same_term(term, connection.Term_1) or same_term(term, connection.Term_2)):
+                if (LHS_RHS):
+                    Term_2 = connection.Term_2
+                    RHS_term = None
+                    for RHS_term_loop in RHS_terms: #updated RHS_terms are no longer equal to connection.Term_2
+                        if (same_term(Term_2, RHS_term_loop)):
+                            RHS_term = RHS_term_loop
+                            break
+                    assert RHS_term != None
+                    num_molecules = RHS_term.num_molecules
+                    if (num_molecules == 0): #cannot solve
+                        continue
+                    coefficient = num_molecules / connection.ratio[0] * connection.ratio[1]
+                    term_coefficient[term] = coefficient #solved
+                    break
+                else:
+                    Term_1 = connection.Term_1
+                    LHS_term = None
+                    for LHS_term_loop in LHS_terms: #updated RHS_terms are no longer equal to connection.Term_2
+                        if (same_term(Term_1, LHS_term_loop)):
+                            LHS_term = LHS_term_loop
+                            break
+                    assert LHS_term != None
+                    num_molecules = LHS_term.num_molecules
+                    if (num_molecules == 0): #cannot solve
+                        continue
+                    coefficient = num_molecules / connection.ratio[1] * connection.ratio[0]
+                    term_coefficient[term] = coefficient #solved
+                    break
+        #cannot solve, skip to next term
+    return term_coefficient
 """
 LHS_terms = []
 RHS_terms = []
@@ -311,10 +362,14 @@ for i in range(0, int(input("Enter number of terms in RHS: "))):
 """
 equation = input("Enter equation: ")
 inputs_LHS, inputs_RHS, LHS_terms, RHS_terms = format_equation(equation)
-coefficients = set_value(find_correlation())
+list_connections = find_connection()
+coefficients = set_value(list_connections)
 list_coefficients = list(coefficients.values())
-print(f"list_coefficients: {list_coefficients}")
-while (0 in list_coefficients):
+print(f"list_coefficients (STEP ONE APPLIED): {list_coefficients}")
+for j in range(0, 10):
+    if (not 0 in list_coefficients):
+        break
+    #update num_molecules after each iteration
     for i in range(0, len(list_coefficients)):
         if (i >= len(LHS_terms)):
             RHS_terms[i - len(LHS_terms)].num_molecules = list_coefficients[i]
@@ -326,22 +381,40 @@ while (0 in list_coefficients):
     for i in list_solutions:
         coefficient_value, term_value = i
         term_value.num_molecules = coefficient_value
-        list_coefficients[list(coefficients.keys()).index(term_value)] = coefficient_value    
+        list_coefficients[list(coefficients.keys()).index(term_value)] = coefficient_value   
+else: #still not solved
+    print(f"list_coefficients (STEP TWO APPLIED): {list_coefficients}")
+    #step three, applying step one on the data from step two
+    term_coefficient = solutions_link(list_connections)
+    for i in term_coefficient:
+        coefficient = term_coefficient[i]
+        if (i in LHS_terms):
+            index = LHS_terms.index(i)
+            LHS_terms[index].num_molecules = coefficient
+            list_coefficients[index] = coefficient
+        if (i in RHS_terms):
+            index = RHS_terms.index(i)
+            RHS_terms[RHS_terms.index(i)].num_molecules = coefficient
+            list_coefficients[len(LHS_terms) + index] = coefficient
+    print(f"list_coefficients (STEP THREE APPLIED): {list_coefficients}")
+    if (0 in list_coefficients):
+        print("Program is unable to balance the chemical equation.")
+        quit()
 list_coefficients = format_coefficients(list_coefficients)
 str_return = ""
 for i in range(0, len(inputs_LHS)):
     term = inputs_LHS[i]
     coefficient = list_coefficients[i]
     if (i == len(inputs_LHS) - 1):
-        str_return += f"{coefficient}{term} "
+        str_return += f"{coefficient}_{term} "
     else:
-        str_return += f"{coefficient}{term} + "
+        str_return += f"{coefficient}_{term} + "
 str_return += "-> "
 for i in range(0, len(inputs_RHS)):
     term = inputs_RHS[i]
     coefficient = list_coefficients[len(inputs_LHS) + i]
     if (i == len(inputs_RHS) - 1):
-        str_return += f"{coefficient}{term} "
+        str_return += f"{coefficient}_{term} "
     else:
-        str_return += f"{coefficient}{term} + "
-print(str_return)
+        str_return += f"{coefficient}_{term} + "
+print(f"Balanced chemical equation: {str_return}")
