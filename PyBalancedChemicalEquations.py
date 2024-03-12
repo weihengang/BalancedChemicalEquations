@@ -1,4 +1,3 @@
-import random as r
 class Element:
     def __init__(self, str_element, amount):
         self.str_element = str_element
@@ -13,7 +12,7 @@ class Term:
         return f"({self.num_molecules}, {self.list_Element})"
 class Connection:
     def __init__(self, Term_1, Term_2, ratio):
-        assert type(Term_1) == Term
+        assert type(Term_1 ) == Term
         assert type(Term_2) == Term
         self.Term_1 = Term_1
         self.Term_2 = Term_2
@@ -70,10 +69,9 @@ def format_str(str_term):
             if (char.isalpha() and close_flag):
                 break
             str_bracket += char
-        bracket_str = str_bracket
-        inside_bracket = bracket_str[bracket_str.index("(") + 1:bracket_str.index(")")]
+        inside_bracket = str_bracket[str_bracket.index("(") + 1:str_bracket.index(")")]
         try:
-            outside_bracket = int(bracket_str[bracket_str.index(")") + 1:])
+            outside_bracket = int(str_bracket[str_bracket.index(")") + 1:])
         except (ValueError):
             outside_bracket = 1
         list_Number = extract_number(inside_bracket)
