@@ -238,10 +238,21 @@ def create_linear_equations(dict_repeated):
                 dict_equations[str_element].append((f"{subscript}x", term))
     return dict_equations
 def solve_linear_equation(equation): 
-    #NOT MY CODE - solve_linear_equation() TAKEN FROM GEEKSFORGEEKS
-    z = eval(equation.replace("x", "j").replace("=", "-(") + ")", {"j": 1j}) 
-    real, imag = z.real, -z.imag 
-    return real / imag
+    LHS, RHS = equation.split("=")
+    LHS_terms = LHS.split("+"); RHS_terms = RHS.split("+")
+    LHS_sum = 0; LHS_coefficient = 0
+    RHS_sum = 0; RHS_coefficient = 0
+    for i in LHS_terms:
+        if (not "x" in i):
+            LHS_sum += float(i)
+        else:
+            LHS_coefficient += float(i.replace("x", ""))
+    for i in RHS_terms:
+        if (not "x" in i):
+            RHS_sum += float(i)
+        else:
+            RHS_coefficient += float(i.replace("x", ""))
+    return (LHS_sum - RHS_sum) / (RHS_coefficient - LHS_coefficient)
 def format_linear_equations(dict_A, dict_B):
     #solve element by element
     list_solutions = []
