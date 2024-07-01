@@ -1,5 +1,5 @@
 The code solves chemical equations first by identifying any elements that are unique on each side, and then subsituting values for them. 
-Afterwards, it solves the rest with linear equation (two lines of code are from GeeksforGeeks, for proper formatting of equations for eval() to solve).
+Afterwards, it solves the rest with linear equation (simultaneous equations have not been added yet).
 The program may sometimes output decimal coefficients, or those which are not fully simplified.
 
 Example chemical equation inputs (that it can solve):                                                                                                                                                            
